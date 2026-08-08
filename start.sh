@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 一键启动：中国经济资金流动全景图（纯前端）。
 # 依赖缺失时自动 npm install，然后启动 Vite dev server。
+# Vite 8 需要 Node ≥20.19 或 ≥22.12（会用到 node:util.styleText）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,7 +14,23 @@ DEV_HOST=0.0.0.0
 log() { printf '\033[0;36m[start]\033[0m %s\n' "$*"; }
 die() { printf '\033[0;31m[start]\033[0m %s\n' "$*" >&2; exit 1; }
 
-command -v npm >/dev/null 2>&1 || die "未找到 npm，请先安装 Node.js 18+。"
+# 优先使用本机已安装的 Node 22（规避系统自带过旧 Node）
+LOCAL_NODE_BIN="${HOME}/.local/node-v22.17.0/bin"
+if [ -x "${LOCAL_NODE_BIN}/node" ]; then
+  export PATH="${LOCAL_NODE_BIN}:${PATH}"
+fi
+
+command -v npm >/dev/null 2>&1 || die "未找到 npm，请先安装 Node.js 22+（推荐）。"
+
+NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
+NODE_MINOR="$(node -p "process.versions.node.split('.')[1]")"
+if { [ "$NODE_MAJOR" -lt 20 ]; } \
+  || { [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -lt 19 ]; } \
+  || { [ "$NODE_MAJOR" -eq 21 ]; } \
+  || { [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -lt 12 ]; }; then
+  die "当前 Node $(node -v) 过旧，Vite 8 需要 ≥20.19 或 ≥22.12。可安装到 ~/.local/node-v22.17.0 后重试。"
+fi
+log "使用 Node $(node -v)"
 
 # --- 0. 释放端口（防止旧实例残留） ---
 log "释放端口 $DEV_PORT ..."
